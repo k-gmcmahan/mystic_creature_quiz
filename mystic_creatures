@@ -1,0 +1,351 @@
+'use strict';
+const Alexa = require('alexa-sdk');
+const APP_ID = undefined;
+
+/***********
+Data: Customize the data below as you please.
+***********/
+
+const SKILL_NAME = "Mystic Creature Quiz";
+const HELP_MESSAGE_BEFORE_START = "Answer six questions to find your mystic creature! Are you ready to play?";
+const HELP_MESSAGE_AFTER_START = "Just respond with yes or no and I'll give your mythical creature in the end.";
+const HELP_REPROMPT = "Your mythical creature will be revealed after you answer all my yes or no questions.";
+const STOP_MESSAGE = "Your destiny will be waiting for you next time.";
+const CANCEL_MESSAGE = "Let's go back to the beginning.";
+const MISUNDERSTOOD_INSTRUCTIONS_ANSWER = "Sorry, I was distracted by mermaid songs and didn't catch that. Please answer with either yes or no.";
+
+const WELCOME_MESSAGE = "Welcome! Are you a charismatic mermaid or a cantankerous wizard? Answer six questions with either yes or no to find your mystic creature. Are you ready to start?";
+const INITIAL_QUESTION_INTROS = [
+  "Great! Let's start!",
+  "<say-as interpret-as='interjection'>Alrighty</say-as>! Let's begin our quest with your first question!",
+  "Ok let's go. <say-as interpret-as='interjection'>Ahem</say-as>.",
+  "<say-as interpret-as='interjection'>well well</say-as>."
+];
+const QUESTION_INTROS = [
+  "Oh dear.",
+  "As you will.",
+  "A wise choice, mortal!",
+  "Very well.",
+  "Your destiny is getting clearer now.",
+  "An interesting choice, human.",
+  "I knew it.",
+  "The mystics agree.",
+  "Quite true.",
+  "I agree."
+];
+const UNDECISIVE_RESPONSES = [
+  "<say-as interpret-as='interjection'>Honk</say-as>. I'll just choose for you.",
+  "<say-as interpret-as='interjection'>Nanu Nanu</say-as>. I picked an answer for you.",
+  "<say-as interpret-as='interjection'>Uh oh</say-as>... well I have no magic to fix that.",
+  "<say-as interpret-as='interjection'>Aha</say-as>. We will just move on then.",
+  "<say-as interpret-as='interjection'>Aw man</say-as>. How about this question?",
+];
+const RESULT_MESSAGE = "The mystics have decided! You are "; // the name of the result is inserted here.
+const PLAY_AGAIN_REQUEST = "Your have fulfilled you quest to find your mythical creature. Would you want to play again?";
+
+const animalList = {
+  mermaid: {
+    name: "a mermaid",
+    display_name: "Mermaid",
+    audio_message: "Mermaids are compassionate and charismatic.",
+    description: "You are in touch with your spiritual side, which often fuels your desire to help others in need. People are naturally drawn to your kind personality. Plus you probably have a great set of pipes!",
+    img: {
+      smallImageUrl: "https://i.ibb.co/sbpyvfy/mermaid-720px.jpg",
+      largeImageUrl: "https://i.ibb.co/N16vs6w/mermaid-1200px.jpg"
+    }
+  },
+  wizard: {
+    name: "a wizard",
+    display_name: "Wizard",
+    audio_message: "Wizards are solitary and wise.",
+    description: "Ever learning and ever clever. You are naturally gifted at picking up new ideas and have an insatiable need for constant self-improvement. You are likely to be too absorbed in their studies to maintain a large group of friends...which is fine by you. Books are better than people.",
+    img: {
+      smallImageUrl: "https://i.ibb.co/8x3wnxw/wizard-720px.jpg",
+      largeImageUrl: "https://i.ibb.co/LPRzPSn/wizard-1200px.jpg"
+    }
+  },
+  phoenix: {
+    name: "a phoenix",
+    display_name: "Phoenix",
+    audio_message: "Phoenixes are creative and confident.",
+    description: "You are a self-made individual that often finds yourself blazing through the road less traveled. You are confident with who you are and are always willing to try something new.",
+    img: {
+      smallImageUrl: "https://i.ibb.co/LzDyWDb/phoenix-720px.jpg",
+      largeImageUrl: "https://i.ibb.co/8zyND7H/phoenix-1200px.jpg"
+    }
+  },
+  dragon: {
+    name: "a dragon",
+    display_name: "Dragon",
+    audio_message: "Dragons are loyal and fierce.",
+    description: "While your confronting nature can sometimes be off-putting to strangers, those who know you better will are incredibly fortunate to have you as an ally. You place your friends and family above all else... and heaven help whoever chooses to mess around with them!",
+    img: {
+      smallImageUrl: "https://i.ibb.co/9hG7NBZ/dragon-720px.jpg",
+      largeImageUrl: "https://i.ibb.co/SxVGTrb/dragon-1200px.jpg"
+    }
+  },
+  fairy: {
+    name: "a fairy",
+    display_name: "Fairy",
+    audio_message: "Fairies are carefree and sociable.",
+    description: "You are the life of the party, and enjoy flitting around and meeting new people. You don't let yourself get caught up in details and are adept at seeing the good in everything! You are sunshine personified. With wings. And fairy dust.",
+    img: {
+      smallImageUrl: "https://i.ibb.co/6wm3QHq/fairy-720px.jpg",
+      largeImageUrl: "https://i.ibb.co/Js42q8J/fairy-1200px.jpg"
+    }
+  }
+  unicorn: {
+    name: "a unicorn",
+    display_name: "Unicorn",
+    audio_message: "Unicorns are gentle and mysterious.",
+    description: "You oftentimes find yourself in the role of keeping the peace. You are well-liked by everyone you meet! However, you are also elusive and hard to get to know. Do you have something on your forehead?",
+    img: {
+      smallImageUrl: "https://i.ibb.co/L98f1sW/unicorn-720px.jpg",
+      largeImageUrl: "https://i.ibb.co/6gq7XWr/unicorn-1200px.jpg"
+    }
+  }
+};
+
+const questions = [
+  {
+    question: "Do you like spending time socializing with others?",
+    points: {
+      mermaid: 5,
+      wizard: 0,
+      phoenix: 2,
+      dragon: 3,
+      fairy: 6,
+      unicorn: 3
+    }
+  },
+  {
+    question: "Do you hate conflict?",
+      points: {
+      mermaid: 5,
+      wizard: 4,
+      phoenix: 3,
+      dragon: 1,
+      fairy: 5,
+      unicorn: 6
+    }
+  },
+  {
+    question: "If you see a stranger that needs help, are you likely to help them?",
+    points: {
+      mermaid: 6,
+      wizard: 1,
+      phoenix: 2,
+      dragon: 3,
+      fairy: 5,
+      unicorn: 6
+    }
+  },
+  {
+    question: "Are you detail-oriented?",
+    points: {
+      mermaid: 4,
+      wizard: 6,
+      phoenix: 2,
+      dragon: 3,
+      fairy: 0,
+      unicorn: 4
+    }
+  },
+  {
+    question: "Do you crave independence?",
+    points: {
+      mermaid: 2,
+      wizard: 5,
+      phoenix: 6,
+      dragon: 4,
+      fairy: 0,
+      unicorn: 2
+    }
+  },
+  {
+    question: "Do you prefer vacationing in the mountains instead of on the beach?",
+    points: {
+      mermaid: 0,
+      wizard: 5,
+      phoenix: 3,
+      dragon: 3,
+      fairy: 6,
+      unicorn: 4
+    }
+  }
+];
+
+/***********
+Execution Code: Avoid editing the code below if you don't know JavaScript.
+***********/
+
+// Private methods (this is the actual code logic behind the app)
+
+const _initializeApp = handler => {
+  // Set the progress to -1 one in the beginning
+  handler.attributes['questionProgress'] = -1;
+  // Assign 0 points to each animal
+  var initialPoints = {};
+  Object.keys(animalList).forEach(animal => initialPoints[animal] = 0);
+  handler.attributes['animalPoints'] = initialPoints;
+};
+
+const _nextQuestionOrResult = (handler, prependMessage = '') => {
+  if(handler.attributes['questionProgress'] >= (questions.length - 1)){
+    handler.handler.state = states.RESULTMODE;
+    handler.emitWithState('ResultIntent', prependMessage);
+  }else{
+    handler.emitWithState('NextQuestionIntent', prependMessage);
+  }
+};
+
+const _applyAnimalPoints = (handler, calculate) => {
+  const currentPoints = handler.attributes['animalPoints'];
+  const pointsToAdd = questions[handler.attributes['questionProgress']].points;
+
+  handler.attributes['animalPoints'] = Object.keys(currentPoints).reduce((newPoints, animal) => {
+    newPoints[animal] = calculate(currentPoints[animal], pointsToAdd[animal]);
+    return newPoints;
+  }, currentPoints);
+};
+
+const _randomQuestionIntro = handler => {
+  if(handler.attributes['questionProgress'] == 0){
+    // return random initial question intro if it's the first question:
+    return _randomOfArray(INITIAL_QUESTION_INTROS);
+  }else{
+    // Assign all question intros to remainingQuestionIntros on the first execution:
+    var remainingQuestionIntros = remainingQuestionIntros || QUESTION_INTROS;
+    // randomQuestion will return 0 if the remainingQuestionIntros are empty:
+    let randomQuestion = remainingQuestionIntros.splice(_randomIndexOfArray(remainingQuestionIntros), 1);
+    // Remove random Question from rameining question intros and return the removed question. If the remainingQuestions are empty return the first question:
+    return randomQuestion ? randomQuestion : QUESTION_INTROS[0];
+  }
+};
+
+const _randomIndexOfArray = (array) => Math.floor(Math.random() * array.length);
+const _randomOfArray = (array) => array[_randomIndexOfArray(array)];
+const _adder = (a, b) => a + b;
+const _subtracter = (a, b) => a - b;
+
+// Handle user input and intents:
+
+const states = {
+  QUIZMODE: "_QUIZMODE",
+  RESULTMODE: "_RESULTMODE"
+}
+
+const newSessionHandlers = {
+  'NewSession': function(){
+    _initializeApp(this);
+    this.emit(':askWithCard', WELCOME_MESSAGE, SKILL_NAME, WELCOME_MESSAGE);
+    //                         ^speechOutput,   ^cardTitle, ^cardContent,   ^imageObj
+  },
+  'YesIntent': function(){
+    this.handler.state = states.QUIZMODE;
+    _nextQuestionOrResult(this);
+  },
+  'NoIntent': function(){
+    this.emitWithState('AMAZON.StopIntent');
+  },
+  'AMAZON.HelpIntent': function(){
+    this.emit(':askWithCard', HELP_MESSAGE_BEFORE_START, HELP_REPROMPT, SKILL_NAME);
+  },
+  'AMAZON.CancelIntent': function(){
+    this.emitWithState('AMAZON.StopIntent');
+  },
+  'AMAZON.StopIntent': function(){
+    this.emit(':tellWithCard', STOP_MESSAGE, SKILL_NAME, STOP_MESSAGE);
+  },
+  'Unhandled': function(){
+    this.emit(':ask', MISUNDERSTOOD_INSTRUCTIONS_ANSWER);
+  }
+};
+
+
+const quizModeHandlers = Alexa.CreateStateHandler(states.QUIZMODE, {
+  'NextQuestionIntent': function(prependMessage = ''){
+    // Increase the progress of asked questions by one:
+    this.attributes['questionProgress']++;
+    // Reference current question to read:
+    var currentQuestion = questions[this.attributes['questionProgress']].question;
+
+    this.emit(':askWithCard', `${prependMessage} ${_randomQuestionIntro(this)} ${currentQuestion}`, HELP_MESSAGE_AFTER_START, SKILL_NAME, currentQuestion);
+    //                        ^speechOutput                                                         ^repromptSpeech           ^cardTitle  ^cardContent     ^imageObj
+  },
+  'YesIntent': function(){
+    _applyAnimalPoints(this, _adder);
+    // Ask next question or return results when answering the last question:
+    _nextQuestionOrResult(this);
+  },
+  'NoIntent': function(){
+    // User is responding to a given question
+    _applyAnimalPoints(this, _subtracter);
+    _nextQuestionOrResult(this);
+  },
+  'UndecisiveIntent': function(){
+    // Randomly apply
+    Math.round(Math.random()) ? _applyAnimalPoints(this, _adder) : _applyAnimalPoints(this, _subtracter);
+    _nextQuestionOrResult(this, _randomOfArray(UNDECISIVE_RESPONSES));
+  },
+  'AMAZON.RepeatIntent': function(){
+    var currentQuestion = questions[this.attributes['questionProgress']].question;
+
+    this.emit(':askWithCard', currentQuestion, HELP_MESSAGE_AFTER_START, SKILL_NAME, currentQuestion);
+    //                        ^speechOutput    ^repromptSpeech           ^cardTitle ^cardContent     ^imageObj
+  },
+  'AMAZON.HelpIntent': function(){
+    this.emit(':askWithCard', HELP_MESSAGE_AFTER_START, HELP_REPROMPT, SKILL_NAME);
+  },
+  'AMAZON.CancelIntent': function(){
+    this.emit(':tellWithCard', CANCEL_MESSAGE, SKILL_NAME, CANCEL_MESSAGE);
+  },
+  'AMAZON.StopIntent': function(){
+    this.emit(':tellWithCard', STOP_MESSAGE, SKILL_NAME, STOP_MESSAGE);
+  },
+  'Unhandled': function(){
+    this.emit(':ask', MISUNDERSTOOD_INSTRUCTIONS_ANSWER);
+  }
+});
+
+
+const resultModeHandlers = Alexa.CreateStateHandler(states.RESULTMODE, {
+  'ResultIntent': function(prependMessage = ''){
+    // Determine the highest value:
+    const animalPoints = this.attributes['animalPoints'];
+    const result = Object.keys(animalPoints).reduce((o, i) => animalPoints[o] > animalPoints[i] ? o : i);
+    const resultMessage = `${prependMessage} ${RESULT_MESSAGE} ${animalList[result].name}. ${animalList[result].audio_message}. ${PLAY_AGAIN_REQUEST}`;
+
+    this.emit(':askWithCard', resultMessage, PLAY_AGAIN_REQUEST, animalList[result].display_name, animalList[result].description, animalList[result].img);
+    //                        ^speechOutput  ^repromptSpeech     ^cardTitle                       ^cardContent                    ^imageObj
+  },
+  'YesIntent': function(){
+    _initializeApp(this);
+    this.handler.state = states.QUIZMODE;
+    _nextQuestionOrResult(this);
+  },
+  'NoIntent': function(){
+    this.emitWithState('AMAZON.StopIntent');
+  },
+  'AMAZON.HelpIntent': function(){
+    this.emit(':askWithCard', HELP_MESSAGE_AFTER_START, HELP_REPROMPT, SKILL_NAME);
+  },
+  'AMAZON.CancelIntent': function(){
+    this.emitWithState('AMAZON.StopIntent');
+  },
+  'AMAZON.StopIntent': function(){
+    this.emit(':tellWithCard', STOP_MESSAGE, SKILL_NAME, STOP_MESSAGE);
+  },
+  'Unhandled': function(){
+    this.emit(':ask', MISUNDERSTOOD_INSTRUCTIONS_ANSWER);
+  }
+});
+
+
+
+exports.handler = (event, context, callback) => {
+  const alexa = Alexa.handler(event, context);
+  alexa.APP_ID = APP_ID;
+  alexa.registerHandlers(newSessionHandlers, quizModeHandlers, resultModeHandlers);
+  alexa.execute();
+};
